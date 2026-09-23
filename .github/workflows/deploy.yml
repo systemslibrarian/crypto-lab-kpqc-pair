@@ -1,0 +1,116 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # The gate must judge pull requests too, or a Dependabot bump has no signal to
+  # auto-merge against.
+  pull_request:
+    branches: [main]
+  # Required by the post-merge dispatch in dependabot-auto-merge: a merge made
+  # with GITHUB_TOKEN raises no push event, so without this trigger an
+  # auto-merged bump would land on main and never deploy.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # NOT a bare `pages`: with cancel-in-progress, a PR run sharing the group
+  # would cancel a live main deploy.
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Unit tests (Vitest — official KpqC KAT record 0, AIM2 vs public key, ring reduction)
+        run: npm test
+
+      - name: Build (typecheck gates the build)
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Both browser projects run here, and this is the whole gate a Dependabot
+      # bump auto-merges against. Gating auto-merge on a lighter workflow than
+      # the deploy runs is how a repo silently stops shipping: the bump merges
+      # clean, the heavier gate then fails on main, and nothing is red in
+      # between.
+      - name: Accessibility gate (axe-core, WCAG A/AA, 1280px + 380px)
+        run: npm run test:a11y
+
+      - name: Claims gate (real crypto round trips, tamper rejection, negative claims)
+        run: npm run test:e2e
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    # NOT `== 'push'`. That also skips workflow_dispatch, which is the one
+    # trigger the post-merge dispatch depends on — the dispatched run would
+    # build, pass the gate, and then skip this job, so the site never updates.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  dependabot-auto-merge:
+    # `needs: build` is the whole safety argument — the gate decides, not the
+    # version number. A major that breaks this lab fails the gate and the PR
+    # stays open for a human.
+    needs: build
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # actions: write is required for the deploy dispatch below. Without it
+      # `gh workflow run` returns HTTP 403 "Resource not accessible by
+      # integration", the merged bump never deploys, and the failure is silent.
+      actions: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge any bump whose gate went green, then dispatch the deploy
+        run: |
+          merged=""
+          for attempt in 1 2 3; do
+            gh pr merge --squash --delete-branch "$PR_URL" && merged=1 && break
+            sleep 15   # a sibling PR merging first moves main under us
+          done
+          if [ -z "$merged" ]; then
+            echo "::warning::gate passed, merge did not land"
+            exit 0
+          fi
+          # A merge performed with GITHUB_TOKEN raises no push event, so the
+          # `on: push` deploy above never fires. Dispatching it explicitly is
+          # the only thing that gets an auto-merged bump onto the live site.
+          # The filename here must be THIS file: a dispatch naming a workflow
+          # that does not exist 404s only on the auto-merge path, after the
+          # merge has already landed.
+          gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

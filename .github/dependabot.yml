@@ -1,0 +1,43 @@
+# Grouped so an ecosystem's routine bumps arrive as ONE pull request instead of
+# one per dependency. Ungrouped, this fleet opened 1,461 PRs across 176 repos,
+# none of which carried any CI signal.
+#
+# Majors are deliberately left OUT of the npm group. A breaking major inside a
+# grouped PR makes the whole thing unmergeable, which is the hand-unpicking this
+# exists to prevent. Two that matter to this lab specifically: TypeScript 7 stops
+# tolerating an undeclared side-effect import, so `src/vite-env.d.ts` is what
+# keeps `import './style.css'` in `main.ts` from failing TS2882; and a major on
+# `@killd21/kpqc` would change the WASM behind every KAT fixture in
+# `src/kat/fixtures.ts`, whose SHA-256 digests are pinned to the 0.2.x reference
+# build and would need re-verifying against the upstream KAT files by hand.
+#
+# github-actions majors ARE grouped: the checkout/setup-node v7 and Pages v5/v6
+# jumps were verified green across the fleet on 2026-08-18.
+#
+# Both groups auto-merge once this lab's own gate passes on the PR -- see the
+# dependabot-auto-merge job in .github/workflows/deploy.yml. The gate decides,
+# not the version number.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

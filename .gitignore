@@ -1,0 +1,14 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+.DS_Store
+*.local
+
+# The binding spec is a gitignored working copy of the catalog's master
+# template; the catalog repo owns the original. The build brief is a working
+# document in the same class — no lab in this fleet ships one.
+template.md
+_MASTER-TEMPLATE.md
+CRYPTO-LAB-TEMPLATE*.md
+brief.md
