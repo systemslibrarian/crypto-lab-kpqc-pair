@@ -193,13 +193,23 @@ WASM module's own NIST DRBG, calls the C `crypto_sign_keypair` / `crypto_sign` a
 output buffers with SHA-256 — so a pass means the shipped WASM reproduces the
 upstream vector byte for byte.
 
-**Mutation-tested (INV-4).** Sixteen deliberate mutations were applied and every one
-made the owning test fail: the AIM outer S-box exponent, the S-box exponent lanes,
-the two triangular masks and the matrix application order in the affine layer, the
-SHAKE128 affine seed, the GF(2^128) reduction tail, the pi-derived constants and the
-feed-forward XOR; the MPCitH repetition stride and salt width; the NTRU+ ring's two
-reduction signs, its modulus and its dimension; and all four on-screen negative
-claims, including the transcript caveat. Each was restored immediately.
+**Mutation-tested (INV-4).** Twenty-two deliberate mutations were applied and every
+one made the owning test fail. Sixteen against the crypto paths — the AIM outer
+S-box exponent, the S-box exponent lanes, the two triangular masks and the matrix
+application order in the affine layer, the SHAKE128 affine seed, the GF(2^128)
+reduction tail, a pi-derived constant, the affine vector and the feed-forward XOR;
+the MPCitH repetition stride and salt width; and the NTRU+ ring's two reduction
+signs, its modulus and its dimension. Six against the honesty surface — each of the
+three on-screen negative claims hidden or softened, and the MPCitH caveat replaced
+with the decoded-party claim this lab deliberately does not make. Each was restored
+immediately.
+
+Two of those found real gaps rather than confirming existing cover, which is the
+point of running them: the ring suite phrased its expected coefficient as
+`NTRUPLUS_Q - 1`, so a modulus mutation could not be detected until the parameters
+were pinned as literals and cross-checked against the reference key width; and the
+MPCitH view's original hidden-party output was assertable only for length and range,
+so any derivation at all would have passed.
 
 **Accessibility.** The gate is not "axe returned no violations". At every one of the
 26 scanned states it also asserts axe's `incomplete` bucket is empty, walks every
