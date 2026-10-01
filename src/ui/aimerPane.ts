@@ -14,7 +14,7 @@ export function renderAimerPane(root: HTMLElement): void {
       <span class="kat-badge" data-kat="aimer-128f-0"><span aria-hidden="true">&#10003;</span> KAT #0 pinned</span>
     </div>
 
-    <aside class="honesty-note" id="aimer-research-warning">
+    <aside class="honesty-note" id="aimer-research-warning" aria-label="AIMer research status">
       <strong>Historical AIM2 — reported forgery vulnerability.</strong>
       <p><a href="https://eprint.iacr.org/2026/2235">ePrint 2026/2235 (September 28, 2026)</a> reports public-key-only forgeries against AIMer v2.0 accepted by unmodified reference verifiers. This is a demonstrated result reported in a preprint; it has not yet been independently reproduced against this lab's shipped WASM. Honest KATs and one-bit tamper rejection do not establish signature security. AIM3-based v3.0 excludes this zero-branch attack, without a comprehensive security assessment here.</p>
     </aside>
