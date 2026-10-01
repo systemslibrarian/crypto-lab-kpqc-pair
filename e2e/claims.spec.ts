@@ -23,7 +23,7 @@ test('AIMer signs and verifies, and the computed AIM2 image equals the public ke
   await expect(page.locator('#aimer-status')).toContainText('VERIFIED')
   await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'pass')
 
-  // INV-2: this equality is the whole "knows a preimage" claim made computable.
+  // INV-2: this checks the honest signer's preimage, not every accepted proof.
   // The left side is this lab's own AIM2 evaluation in TypeScript; the right is
   // the image the reference WASM put in the public key. They are produced by
   // completely separate code paths, so an equal pair is a real cross-check.
@@ -187,10 +187,16 @@ test('the AIMer success keeps its no-hardness-proof caveat on screen', async ({ 
   await page.locator('#aimer-run').click()
   await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'pass')
 
+  const warning = page.locator('#aimer-research-warning')
+  await expect(warning).toBeVisible()
+  await expect(warning).toContainText('public-key-only forgeries')
+  await expect(warning).toContainText('not yet been independently reproduced')
+  await expect(warning.locator('a')).toHaveAttribute('href', 'https://eprint.iacr.org/2026/2235')
   const claim = page.locator('#aimer-negative-claim')
   await expect(claim).toBeVisible()
   await expect(claim).toContainText('not a proof that AIM2 is one-way')
   await expect(claim).toContainText('not production crypto')
+  await expect(claim).toContainText('does not establish knowledge of a valid preimage')
   // Nothing in the pane is failing: the caveat stands beside a clean run.
   await expect(page.locator('#panel-aimer .verdict-fail, #panel-aimer .verdict-alarm')).toHaveCount(0)
 })

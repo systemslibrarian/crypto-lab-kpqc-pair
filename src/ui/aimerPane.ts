@@ -9,10 +9,15 @@ export function renderAimerPane(root: HTMLElement): void {
       <div>
         <p class="eyebrow">HEADLINE MECHANISM</p>
         <h2>A signature from a symmetric one-way function</h2>
-        <p>AIMer does not hide a lattice equation inside its signature. Its public key contains an AIM2 image; the signer proves, through many MPC simulations, that it knows the secret preimage that produced that image.</p>
+        <p>AIMer does not hide a lattice equation inside its signature. Its public key contains an AIM2 image. This walkthrough computes the honest signer's preimage and checks its signature; an accepted historical AIM2 proof need not establish knowledge of a preimage.</p>
       </div>
       <span class="kat-badge" data-kat="aimer-128f-0"><span aria-hidden="true">&#10003;</span> KAT #0 pinned</span>
     </div>
+
+    <aside class="honesty-note" id="aimer-research-warning">
+      <strong>Historical AIM2 — reported forgery vulnerability.</strong>
+      <p><a href="https://eprint.iacr.org/2026/2235">ePrint 2026/2235 (September 28, 2026)</a> reports public-key-only forgeries against AIMer v2.0 accepted by unmodified reference verifiers. This is a demonstrated result reported in a preprint; it has not yet been independently reproduced against this lab's shipped WASM. Honest KATs and one-bit tamper rejection do not establish signature security. AIM3-based v3.0 excludes this zero-branch attack, without a comprehensive security assessment here.</p>
+    </aside>
 
     <div class="control-strip">
       <label for="aimer-message">Message to sign</label>
@@ -62,7 +67,7 @@ export function renderAimerPane(root: HTMLElement): void {
 
       <aside class="honesty-note" id="aimer-negative-claim">
         <strong>Accepted, not proven hard.</strong>
-        <p>The real verifier accepts this proof, but that success is not a proof that AIM2 is one-way or that this newer scheme has received FIPS-level scrutiny. The browser WASM is not guaranteed constant-time and is not production crypto.</p>
+        <p>The real verifier accepts this honest signature, but acceptance does not establish knowledge of a valid preimage in this historical relation. That success is not a proof that AIM2 is one-way. See the reported public-key-only forgery vulnerability above. The browser WASM is not guaranteed constant-time and is not production crypto.</p>
       </aside>
     </div>
   `

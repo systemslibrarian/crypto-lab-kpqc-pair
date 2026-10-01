@@ -15,9 +15,10 @@ against their reference implementations:
 
 - **AIMer-128f** — an MPC-in-the-Head signature. The public key holds an image of the
   **AIM2** symmetric one-way function; signing is a Fiat–Shamir transform over a
-  zero-knowledge proof that the signer knows a preimage. Its security rests on a
-  symmetric primitive rather than on structured number theory — that contrast with
-  the lattice KEM beside it is the whole lesson.
+  proof intended to establish knowledge of a preimage. This historical AIM2-based
+  relation has a reported forgery vulnerability: an accepted proof need not imply
+  knowledge of a valid AIM2 preimage. The honest signing path remains useful for
+  comparing a symmetric construction with the lattice KEM beside it.
 - **NTRU+768** — a lattice KEM in the NTRU family, working in the quotient ring
   `Z_3457[X] / (X^768 - X^384 + 1)`, with a ciphertext-validity check that fails
   closed.
@@ -30,8 +31,8 @@ AIM2 forward evaluation (`src/aimer/aim.ts`) and the NTRU+ ring multiplication
 than trusted:
 
 - the hand-rolled **AIM2 image is compared to the image the reference WASM put in the
-  public key**, and they must be equal (this is the "knows a preimage" claim made
-  computable rather than asserted);
+  public key**, and they must be equal. This cross-check demonstrates the honest
+  signer's preimage, not what every accepted signature proves;
 - the hand-rolled **ring's parameters are checked against the reference's own key
   width** — a coefficient mod 3457 needs 12 bits, so 768 coefficients pack to exactly
   the 1152 bytes the WASM emits.
@@ -41,6 +42,29 @@ leaves the page. **This is not production crypto.** It is a teaching demo, the W
 is not guaranteed constant-time, and these schemes are newer and less
 cross-implementation-scrutinized than the NIST FIPS selections. See
 [Honest Limitations](#honest-limitations).
+
+## Research status — historical AIM2 implementation
+
+[Practical Null-Branch Witness Attacks on In-the-Head Signatures,
+ePrint 2026/2235](https://eprint.iacr.org/2026/2235), published September 28, 2026,
+reports practical classical, public-key-only forgeries for AIM2-based AIMer v2.0,
+including AIMer-128f. Zero factors in the encoded relation permit satisfying
+witnesses that do not decode to valid OWF preimages; the authors demonstrate
+acceptance by unmodified reference verifiers without signing queries. This is a
+**demonstrated result reported in a preprint**, not an attack on AIM2 inversion
+or a blanket break of MPC-in-the-Head.
+
+This lab retains the historical AIM2 path in `@killd21/kpqc` 0.2.0. Its pinned
+vendor source contains the implicated zero-factor equations. The paper's forgery
+has **not yet been independently reproduced against this lab's shipped WASM**.
+The authors' artifact was unavailable when this update was prepared; a forged
+AIMer-128f fixture must be checked against this exact verifier before claiming
+local reproduction. Passing honest KATs or rejecting a particular flipped bit
+does not rule out a constructed forgery.
+
+Section 6.4 explains that AIMer v3.0 replaces AIM2 with AIM3 and excludes the zero
+branch used in this attack. That is not a comprehensive security assessment of
+v3.0. This lab has not migrated to AIM3 and must not be used for deployment.
 
 ## Exhibits
 
@@ -65,8 +89,9 @@ cross-implementation-scrutinized than the NIST FIPS selections. See
 ## When to Use It
 
 - **Use it** to see that a post-quantum signature does not have to be a lattice
-  problem — AIMer's hardness assumption is a symmetric one-way function, and the
-  proof machinery is MPC-in-the-Head rather than a lattice identity.
+  problem — AIMer's intended hardness assumption is a symmetric one-way function, and the
+  proof machinery is MPC-in-the-Head rather than a lattice identity. The historical
+  relation flaw means this assumption alone does not establish signature security.
 - **Use it** to show that national PQ suites cover the same job categories as NIST's
   while making different bets, and that "post-quantum" is a portfolio of assumptions
   rather than one replacement algorithm.
@@ -91,8 +116,9 @@ reduction by hand.
 ## What Can Go Wrong
 
 - **A tampered signature or ciphertext that still verifies.** This is the alarm
-  state, and it is asserted never to occur — the e2e suite fails if any pane ever
-  paints an alarm verdict.
+  state for the specific one-bit edits exercised here, and the e2e suite fails if
+  those edits paint an alarm verdict. This is not a universal forgery-rejection
+  guarantee; see the reported AIMer relation flaw above.
 - **Transcribing the AIM affine layer wrong.** The affine layer is the easy
   transcription error in AIM, and a wrong one still produces plausible-looking hex.
   It is caught because the computed image has to equal the reference's public-key
@@ -115,8 +141,9 @@ two of its four final algorithms — the other two, SMAUG-T and HAETAE, are exer
 [Quantum Vault KpqC](https://systemslibrarian.github.io/crypto-lab-quantum-vault-kpqc/).
 National suites like this one matter because they show standardization bodies making
 *different* bets from NIST's while covering the same job categories: a signature whose
-security reduces to a symmetric primitive is a genuinely different risk profile from a
-lattice signature, and a portfolio that contains both is harder to break all at once.
+intended security relies on a symmetric primitive has a different assumption from a
+lattice signature. Diversifying assumptions does not repair a flawed relation encoding;
+the historical AIM2 signature here has the reported vulnerability described above.
 
 ## Honest Limitations
 

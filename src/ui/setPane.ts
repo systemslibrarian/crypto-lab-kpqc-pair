@@ -30,7 +30,7 @@ export function renderSetPane(root: HTMLElement): void {
         <article class="family-node current">
           <p class="node-kind">Symmetric / MPCitH</p>
           <h4>AIMer</h4>
-          <p>Fiat-Shamir over a proof of knowledge for an AIM2 one-way-function preimage.</p>
+          <p>Historical AIM2 / Fiat-Shamir construction: intended preimage proof, with a reported public-key-only forgery vulnerability (ePrint 2026/2235, September 28, 2026).</p>
           <span>THIS LAB</span>
         </article>
         <article class="family-node sibling">
