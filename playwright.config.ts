@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const port = 4650
+const port = 4713
 const baseURL = `http://localhost:${port}/crypto-lab-kpqc-pair/`
 
 export default defineConfig({
