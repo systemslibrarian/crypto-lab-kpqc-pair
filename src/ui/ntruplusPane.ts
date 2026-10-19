@@ -41,6 +41,16 @@ export function renderNtruplusPane(root: HTMLElement): void {
       <div class="verdict verdict-neutral" id="ntru-status" role="status" aria-live="polite" data-verdict="neutral"></div>
     </div>
 
+    <aside class="honesty-note" id="ntru-module-research">
+      <strong>Research update — October 19, 2026.</strong>
+      <p><a href="https://eprint.iacr.org/2026/2527" target="_blank" rel="noopener">de Perthuis and Trenkić, How Secure are NTRU+ Keys? (ePrint 2026/2527)</a>
+        is a preprint received October 18 and published October 19. Its simulation-based estimates
+        find the best module attack saves 4–10 BKZ block sizes, at most three bits in the Core-SVP
+        cost model. The analyzed NTRU+ parameterizations remain safe within the authors' analysis.</p>
+      <p>These are model-dependent estimates, not demonstrated production-key recovery or proof of
+        security. This lab's NTRU+768 parameters are unchanged; it does not execute the module attack.</p>
+    </aside>
+
     <div id="ntru-results" hidden>
       <dl class="artifact-grid">
         <div><dt>Public key</dt><dd><code id="ntru-pk"></code><span>1,152 bytes</span></dd></div>

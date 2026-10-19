@@ -66,6 +66,12 @@ Section 6.4 explains that AIMer v3.0 replaces AIM2 with AIM3 and excludes the ze
 branch used in this attack. That is not a comprehensive security assessment of
 v3.0. This lab has not migrated to AIM3 and must not be used for deployment.
 
+## NTRU+ research update — October 19, 2026
+
+[de Perthuis and Trenkić, *How Secure are NTRU+ Keys? Analysing the Best Module Attacks*, ePrint 2026/2527](https://eprint.iacr.org/2026/2527), received October 18 and published October 19, is a **preprint with model-dependent estimates**. Its simulation-based analysis finds the best module attack saves 4–10 BKZ block sizes, costing at most three bits of security in the Core-SVP model. The analyzed NTRU+ parameterizations remain safe within the authors' analysis.
+
+This is not demonstrated production-key recovery or a proof of security. The lab retains NTRU+768 and its pinned known-answer fixtures; it does not execute the module attack. These estimates should not be subtracted from unrelated security figures or generalized to every NTRU-based scheme. The visible NTRU+ panel and Primary trails link to the paper.
+
 ## Exhibits
 
 1. **NTRU+ — Meet in the NTRU ring.** Encapsulate to a freshly generated public key,

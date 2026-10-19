@@ -230,3 +230,14 @@ test('both panes advertise the pinned KAT record the unit suite reproduces', asy
   await page.locator('#tab-ntruplus').click()
   await expect(page.locator('[data-kat="ntruplus-768-0"]')).toContainText('KAT #0 pinned')
 })
+
+test('research note is visible and preserves the attack-model limits', async ({ page }) => {
+  await page.goto('.')
+  await page.locator('#tab-ntruplus').click()
+  const note = page.locator('#ntru-module-research')
+  await expect(note).toBeVisible()
+  await expect(note.locator('a')).toHaveAttribute('href', 'https://eprint.iacr.org/2026/2527')
+  await expect(note).toContainText('preprint')
+  await expect(note).toContainText('Core-SVP')
+  await expect(note).toContainText('not demonstrated production-key recovery')
+})

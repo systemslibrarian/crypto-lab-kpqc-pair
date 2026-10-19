@@ -56,6 +56,7 @@ export function renderSetPane(root: HTMLElement): void {
     <section class="sources" aria-labelledby="sources-title">
       <h3 id="sources-title">Primary trails</h3>
       <ul>
+        <li><a href="https://eprint.iacr.org/2026/2527" target="_blank" rel="noopener">NTRU+ module-attack estimates — de Perthuis and Trenkić (October 19, 2026; preprint)</a></li>
         <li><a href="https://www.kpqc.or.kr/" target="_blank" rel="noopener">KpqC competition</a></li>
         <li><a href="https://github.com/ntruplus/ntruplus" target="_blank" rel="noopener">Official NTRU+ implementation and specification trail</a></li>
         <li><a href="https://github.com/killd21/kpqc-js" target="_blank" rel="noopener">Reference implementations compiled to WebAssembly and KAT gate</a></li>
