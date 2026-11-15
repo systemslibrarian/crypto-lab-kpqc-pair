@@ -66,6 +66,20 @@ Section 6.4 explains that AIMer v3.0 replaces AIM2 with AIM3 and excludes the ze
 branch used in this attack. That is not a comprehensive security assessment of
 v3.0. This lab has not migrated to AIM3 and must not be used for deployment.
 
+**Research update — November 15, 2026.** [Biryukov, García Fernández, and Udovenko,
+*Magic Pot: Cryptanalysis of full AIM2 in the standard and related-/reused-key settings
+using new elimination framework*, ePrint 2026/903](https://eprint.iacr.org/2026/903)
+(approved May 10, 2026; full version of a EUROCRYPT 2026 paper) cryptanalyses the AIM2
+primitive of AIMer v2.1 itself rather than the proof relation: a new algebraic
+elimination framework recovers an AIM2-I key (the 128-bit-security instance, the level
+this lab's AIMer-128f reference uses) in about 2^103.66 encryptions against a claimed
+128-bit level (previous best 2^125.8), and becomes practical only in misuse settings
+(one secret key reused under different IVs, or related keys). This is a reported loss
+of security margin, not a practical break of a single honestly generated AIMer-128f
+key like the one this lab's reference WASM creates; it does not change what the
+exhibit shows, and KAT agreement, the matching AIM2 image, and one-bit tamper
+rejection were never evidence that AIM2 is one-way.
+
 ## NTRU+ research update — October 19, 2026
 
 [de Perthuis and Trenkić, *How Secure are NTRU+ Keys? Analysing the Best Module Attacks*, ePrint 2026/2527](https://eprint.iacr.org/2026/2527), received October 18 and published October 19, is a **preprint with model-dependent estimates**. Its simulation-based analysis finds the best module attack saves 4–10 BKZ block sizes, costing at most three bits of security in the Core-SVP model. The analyzed NTRU+ parameterizations remain safe within the authors' analysis.
