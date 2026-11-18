@@ -4,6 +4,7 @@ import { auditContrast, formatContrastFailures } from './contrast';
 import { auditControlNames, formatControlNameFailures } from './control-names';
 import { auditNonText } from './nontext';
 import { NONTEXT_BASELINE } from './nontext-baseline';
+import { assertThisLab } from './identity';
 
 export const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
@@ -593,7 +594,9 @@ export async function boot(page: Page): Promise<void> {
   // it. If that script ever stops pinning dark, this boot fails on data-theme
   // rather than quietly scanning a theme nobody ships.
   await page.addInitScript(() => localStorage.setItem('theme', 'light'));
-  await page.goto('.');
+  /* Not page.goto: a suite that navigates and starts asserting cannot
+   * tell this lab's server from anyone else's. See e2e/identity.ts. */
+  await assertThisLab(page, '.');
 
   expect(
     await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
