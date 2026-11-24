@@ -1,7 +1,7 @@
 # KpqC Pair
 
 **AIMer · NTRU+ · KpqC** — the two Korean KpqC algorithms the Quantum Vault lab left
-out: a signature whose hardness rests on a symmetric one-way function, and a KEM from
+out: a signature whose intended hardness rests on a symmetric one-way function, and a KEM from
 the older NTRU line. Together with
 [Quantum Vault KpqC](https://systemslibrarian.github.io/crypto-lab-quantum-vault-kpqc/)
 this completes the set of four.
@@ -33,9 +33,11 @@ than trusted:
 - the hand-rolled **AIM2 image is compared to the image the reference WASM put in the
   public key**, and they must be equal. This cross-check demonstrates the honest
   signer's preimage, not what every accepted signature proves;
-- the hand-rolled **ring's parameters are checked against the reference's own key
-  width** — a coefficient mod 3457 needs 12 bits, so 768 coefficients pack to exactly
-  the 1152 bytes the WASM emits.
+- the hand-rolled **ring's parameters match the pinned C reference's `params.h`
+  and `poly.h`**. A coefficient mod 3457 needs 12 bits, so 768 coefficients pack to
+  the 1152-byte key width. Width alone does not identify a modulus or prove ring
+  multiplication correct; the review also compared products with the reference's
+  NTT multiplication and independent polynomial long division.
 
 **Security model:** everything is client-side; no network backend, no key ever
 leaves the page. **This is not production crypto.** It is a teaching demo, the WASM
@@ -91,7 +93,10 @@ This is not demonstrated production-key recovery or a proof of security. The lab
 1. **NTRU+ — Meet in the NTRU ring.** Encapsulate to a freshly generated public key,
    show the ciphertext, decapsulate, and confirm the sender's and recipient's 32-byte
    secrets are identical. A one-bit change to the ciphertext is rejected by the real
-   decapsulation path. Below it, a ring lab multiplies two monomials across all 768
+   decapsulation path. The pinned decoder checks SOTP decoding and the recovered
+   randomness against a hash-derived reconstruction; it does not literally build
+   and compare a second ciphertext. On rejection its C output is zeroed and the JS
+   wrapper returns no shared secret. Below it, a ring lab multiplies two monomials across all 768
    coefficients and shows the reduction `X^768 = X^384 - 1` applied — once for
    `X^767 · X`, and twice for `X^700 · X^500`, which lands on `-X^48`.
 2. **AIMer (headline) — A signature from a symmetric one-way function.** Evaluates
@@ -151,8 +156,10 @@ reduction by hand.
   33 repetitions of a 16-party simulation. It does **not** decode which party is
   hidden per repetition, and it does not imply the full soundness of the parameter
   set — see below.
-- **WASM failing to load.** Both panes degrade to an explicit failure verdict naming
-  the error. They never fabricate a result.
+- **WASM failing to load or a check being interrupted.** Both panes name the engine
+  error. An interrupted check says `NOT CHECKED`; it cannot claim the signature or
+  ciphertext was rejected. Editing a message while signing retires that pending
+  result, and a new run clears the preceding run's displayed artifacts.
 
 ## Real-World Usage
 
@@ -179,13 +186,15 @@ the historical AIM2 signature here has the reported vulnerability described abov
   proves those blocks are load-bearing by flipping a bit in one and watching the real
   verifier reject. It deliberately does **not** print which party is hidden in each
   repetition: that index comes from the verifier's Fiat–Shamir expansion of the
-  phase-three commitment, and `@killd21/kpqc` ships compiled WASM with no reference
-  source to confirm an expansion against. Printing a plausible index would have been
-  fabrication, so the pane reports the structure it can prove and names the gap.
-- **The signature layout is derived, not documented.** That the 5888 bytes divide as
-  a 16-byte salt, two 32-byte commitments and 33 equal 176-byte blocks is arithmetic
-  (`16 + 32 + 32 + 33 × 176 = 5888`, the only clean split) corroborated by the
-  verifier rejecting a flip inside any block — not a quotation from a specification.
+  phase-three commitment. The view stops at the sourced byte layout and does not
+  reconstruct each party's MPC view.
+- **The signature layout has a primary source.** The pinned reference's
+  [signature and proof structs](https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/sign.h)
+  and [AIMer-128f parameters](https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/params/params-aimer-128f.h)
+  define a 16-byte salt, two 32-byte commitments, and 33 equal 176-byte blocks.
+  Each block contains a 64-byte reveal path, a 32-byte missing commitment and five
+  16-byte field elements. The total is `16 + 32 + 32 + 33 × 176 = 5888`.
+  Neither divisibility alone nor rejection after a bit flip proves that layout.
 - **Not constant-time, not production.** The browser WASM makes no timing guarantees
   and this lab makes no side-channel claims.
 - **One parameter set each.** AIMer-128f and NTRU+768 only.
@@ -205,7 +214,7 @@ npm run test:e2e     # claims gate: real crypto, tamper, negative claims
 ```
 
 The Playwright projects build and serve the production bundle themselves on port
-**4650**; `npm run test:a11y` and `npm run test:e2e` need no server running first.
+**4713**; `npm run test:a11y` and `npm run test:e2e` need no server running first.
 
 ## Related Demos
 
@@ -220,12 +229,12 @@ The Playwright projects build and serve the production bundle themselves on port
 
 ## Build & Verify
 
-**25 tests, all green:**
+**37 tests, all green:**
 
 | Suite | Count | What it proves |
 | --- | --- | --- |
-| Unit + KAT (`npm test`) | **10** in 3 files | Official KAT record 0 reproduced for both algorithms; AIM2 image equals the public key's; per-repetition blocks load-bearing; ring reduction and parameters |
-| Claims gate (`npm run test:e2e`) | **13** | Both real round trips, both tamper rejections, stale-result retirement, same-value no-op, hidden-panel integrity, the visible negative claims |
+| Unit + KAT (`npm test`) | **15** in 3 files | Official KAT record 0 reproduced for both algorithms; AIM2 image equals the public key's; per-repetition blocks load-bearing; ring reduction, safe-integer coefficients, parameters, and engine-error classification |
+| Claims gate (`npm run test:e2e`) | **20** | Both real round trips, tamper rejection, interrupted-engine refusal and retry, pending-message retirement, same-value no-op, mismatch rendering, hidden-panel integrity, and visible negative claims |
 | Accessibility gate (`npm run test:a11y`) | **2** | 13 driven states each, at 1280px and 380px — 26 scanned states |
 
 **KAT provenance.** `src/kat/fixtures.ts` pins record 0 of the KpqC reference
@@ -240,7 +249,22 @@ WASM module's own NIST DRBG, calls the C `crypto_sign_keypair` / `crypto_sign` a
 output buffers with SHA-256 — so a pass means the shipped WASM reproduces the
 upstream vector byte for byte.
 
-**Mutation-tested (INV-4).** Twenty-two deliberate mutations were applied and every
+**Student-accuracy review — November 24, 2026.** The original published build was
+checked with delayed WASM loading and interrupted real verifier calls. It reported
+an old signature as verified beside edited text, and reported both engine errors as
+cryptographic rejection. The corrected claims suite drives these cases and also
+checks that a failed ciphertext leaves no old recipient secret on screen.
+
+Independent review read all 100 AIMer and 100 NTRU+ records from the pinned upstream
+`.rsp` files: every signature verified, and every KEM ciphertext decapsulated to its
+recorded secret. Python integer field arithmetic and SHAKE recomputed every stage
+of 105 AIM2 examples, including zero S-box inputs. Twenty-three ring products
+(including dense inputs and both reduction boundaries) agreed with independent
+polynomial long division and the pinned C reference's NTT multiplication. The two
+large-safe-integer regressions were checked with exact `BigInt` arithmetic. These
+checks establish agreement for the exercised inputs, not cryptographic security.
+
+**Historical mutation checks (INV-4).** Twenty-two deliberate mutations were applied and every
 one made the owning test fail. Sixteen against the crypto paths — the AIM outer
 S-box exponent, the S-box exponent lanes, the two triangular masks and the matrix
 application order in the affine layer, the SHAKE128 affine seed, the GF(2^128)
@@ -249,7 +273,7 @@ the MPCitH repetition stride and salt width; and the NTRU+ ring's two reduction
 signs, its modulus and its dimension. Six against the honesty surface — each of the
 three on-screen negative claims hidden or softened, and the MPCitH caveat replaced
 with the decoded-party claim this lab deliberately does not make. Each was restored
-immediately.
+immediately. Those historical mutations were not rerun in the November 24 review.
 
 Two of those found real gaps rather than confirming existing cover, which is the
 point of running them: the ring suite phrased its expected coefficient as

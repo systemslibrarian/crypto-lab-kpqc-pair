@@ -22,9 +22,7 @@ export async function verifyAimer(
   signature: Uint8Array,
   publicKey: Uint8Array,
 ): Promise<boolean> {
-  try {
-    return await aimer128f.verify(message, signature, publicKey)
-  } catch {
-    return false
-  }
+  // A verifier's false result is different from an unavailable or interrupted
+  // engine. Let operational errors reach the UI's NOT CHECKED path.
+  return await aimer128f.verify(message, signature, publicKey)
 }

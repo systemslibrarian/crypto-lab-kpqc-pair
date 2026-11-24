@@ -6,7 +6,51 @@
  * These run against the production build (see `playwright.config.ts`), so the
  * WASM these tests drive is the WASM a visitor gets.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+// Faults are confined to a fresh test page's real WASM boundary. No production
+// hooks or replacement crypto outputs are added to the lesson.
+async function observeEngine(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const review = { mode: 'normal', checks: 0 }
+    Object.defineProperty(window, '__kpqcReview', { value: review })
+    const wrap = (result: any): any => {
+      const instance = result.instance ?? result
+      const exports = { ...instance.exports }
+      // q maps to AIMer-128f verify / NTRU+768 decapsulate in pinned 0.2.0.
+      const check = exports.q
+      exports.q = (...args: number[]): number => {
+        review.checks += 1
+        if (review.mode === 'interrupt') throw new Error('isolated engine interruption')
+        if (review.mode === 'reject') return -1
+        return check(...args)
+      }
+      const keygen = exports.n
+      exports.n = (...args: number[]): number => {
+        const rc = keygen(...args)
+        if (review.mode === 'wrong-image') {
+          const memory = new Uint8Array(exports.h.buffer)
+          memory[args[0]! + 16] = memory[args[0]! + 16]! ^ 1
+        }
+        return rc
+      }
+      const replaced = { exports }
+      return result.instance ? { ...result, instance: replaced } : replaced
+    }
+    const instantiate = WebAssembly.instantiate.bind(WebAssembly)
+    WebAssembly.instantiate = (async (...args: any[]) =>
+      wrap(await (instantiate as any)(...args))) as typeof WebAssembly.instantiate
+    const streaming = WebAssembly.instantiateStreaming.bind(WebAssembly)
+    WebAssembly.instantiateStreaming = async (...args) => wrap(await streaming(...args))
+  })
+  await page.reload()
+}
+
+async function engineMode(page: Page, mode: string): Promise<void> {
+  await page.evaluate((value) => {
+    ;(window as any).__kpqcReview.mode = value
+  }, mode)
+}
 
 test.beforeEach(async ({ page }) => {
   page.setDefaultTimeout(20_000)
@@ -78,11 +122,16 @@ test('a tampered NTRU+ ciphertext fails decapsulation, fail-closed', async ({ pa
   await page.locator('#tab-ntruplus').click()
   await page.locator('#ntru-run').click()
   await expect(page.locator('#ntru-status')).toContainText('MATCH')
+  const originalCiphertext = await page.locator('#ntru-ct').innerText()
+  const originalSecret = await page.locator('#ntru-recipient').innerText()
 
   await page.locator('#ntru-tamper').click()
   await expect(page.locator('#ntru-status')).toContainText('REJECTED')
   await expect(page.locator('#ntru-status')).toHaveAttribute('data-verdict', 'fail')
   await expect(page.locator('#panel-ntruplus [data-verdict="alarm"]')).toHaveCount(0)
+  await expect(page.locator('#ntru-ct')).not.toHaveText(originalCiphertext)
+  await expect(page.locator('#ntru-recipient')).toHaveText('No shared secret returned')
+  await expect(page.locator('#ntru-recipient')).not.toHaveText(originalSecret)
 })
 
 // ── INV-1: the NTRU+ round trip ─────────────────────────────────────────────
@@ -147,6 +196,80 @@ test('rewriting the message to the same value is a no-op, not a retirement', asy
   // The standing proof is the SAME one, not silently recomputed.
   expect(await page.locator('#aim-computed').innerText()).toBe(computedBefore)
 })
+
+test('editing a message while first signing retires the pending result', async ({ page }) => {
+  await observeEngine(page)
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  let requested = false
+  await page.route('**/assets/aimer-*.js', async (route) => {
+    requested = true
+    await held
+    await route.continue()
+  })
+  await page.locator('#aimer-run').click()
+  await expect.poll(() => requested).toBe(true)
+  await page.locator('#aimer-message').fill('Edited during the original signing operation')
+  release()
+  await page.waitForFunction(() => (window as any).__kpqcReview.checks > 0)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+  await expect(page.locator('#aimer-status')).toContainText('retired')
+  await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'neutral')
+  await expect(page.locator('#aimer-results')).toBeHidden()
+  await expect(page.locator('#aimer-tamper')).toBeDisabled()
+  await expect(page.locator('#aimer-run')).toBeEnabled()
+  // The edited text can then obtain its own fresh proof.
+  await page.locator('#aimer-run').click()
+  await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'pass')
+})
+
+test('same-value input while signing preserves the pending proof', async ({ page }) => {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  let requested = false
+  await page.route('**/assets/aimer-*.js', async (route) => {
+    requested = true
+    await held
+    await route.continue()
+  })
+  const message = await page.locator('#aimer-message').inputValue()
+  await page.locator('#aimer-run').click()
+  await expect.poll(() => requested).toBe(true)
+  await page.locator('#aimer-message').fill(message)
+  release()
+  await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'pass')
+  await expect(page.locator('#aimer-results')).toBeVisible()
+})
+
+for (const scheme of ['aimer', 'ntru']) {
+  test(`${scheme} engine interruption is NOT CHECKED and can be retried`, async ({ page }) => {
+    await observeEngine(page)
+    if (scheme === 'ntru') await page.locator('#tab-ntruplus').click()
+    await page.locator(`#${scheme}-run`).click()
+    await expect(page.locator(`#${scheme}-status`)).toHaveAttribute('data-verdict', 'pass')
+    await engineMode(page, 'interrupt')
+    await page.locator(`#${scheme}-tamper`).click()
+    await expect(page.locator(`#${scheme}-status`)).toContainText('NOT CHECKED')
+    await expect(page.locator(`#${scheme}-status`)).not.toContainText('REJECTED')
+    await expect(page.locator(`#${scheme}-status`)).toContainText('isolated engine interruption')
+    if (scheme === 'ntru') await expect(page.locator('#ntru-recipient')).toHaveText('Not checked')
+    await engineMode(page, 'normal')
+    await page.locator(`#${scheme}-tamper`).click()
+    await expect(page.locator(`#${scheme}-status`)).toContainText('REJECTED')
+  })
+}
+
+for (const [fault, comparison] of [['reject', '='], ['wrong-image', '≠']]) {
+  test(`AIMer ${fault} keeps the comparison and explanatory verdict honest`, async ({ page }) => {
+    await observeEngine(page)
+    await engineMode(page, fault!)
+    await page.locator('#aimer-run').click()
+    await expect(page.locator('#aimer-status')).toHaveAttribute('data-verdict', 'alarm')
+    await expect(page.locator('#aim-compare')).toHaveText(comparison!)
+    await expect(page.locator('#aimer-negative-claim')).not.toContainText('accepts this honest signature')
+    await expect(page.locator('#aimer-negative-claim')).toContainText('Even when')
+  })
+}
 
 // ── Hidden panel integrity ──────────────────────────────────────────────────
 

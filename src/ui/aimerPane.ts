@@ -9,7 +9,7 @@ export function renderAimerPane(root: HTMLElement): void {
       <div>
         <p class="eyebrow">HEADLINE MECHANISM</p>
         <h2>A signature from a symmetric one-way function</h2>
-        <p>AIMer does not hide a lattice equation inside its signature. Its public key contains an AIM2 image. This walkthrough computes the honest signer's preimage and checks its signature; an accepted historical AIM2 proof need not establish knowledge of a preimage.</p>
+        <p>AIMer does not hide a lattice equation inside its signature. Its public key contains an AIM2 image. This walkthrough evaluates AIM2 on the honest signer's secret preimage and checks its signature; an accepted historical AIM2 proof need not establish knowledge of a preimage.</p>
       </div>
       <span class="kat-badge" data-kat="aimer-128f-0"><span aria-hidden="true">&#10003;</span> KAT #0 pinned</span>
     </div>
@@ -44,7 +44,7 @@ export function renderAimerPane(root: HTMLElement): void {
         </ol>
         <div class="compare-row">
           <div><span>Computed AIM2 image</span><code id="aim-computed"></code></div>
-          <span class="compare-mark" aria-hidden="true">=</span>
+          <span class="compare-mark" id="aim-compare" aria-hidden="true">=</span>
           <div><span>Image in public key</span><code id="aim-public"></code></div>
         </div>
       </section>
@@ -56,7 +56,7 @@ export function renderAimerPane(root: HTMLElement): void {
           <p>Each repetition simulates 16 parties and contributes one equal-width proof block. Hashing the commitments, message, and public AIM2 image selects one hidden party per repetition; the verifier rebuilds every revealed view and checks both commitment hashes.</p>
         </div>
         <div class="transcript-line" id="aimer-parties" role="list" aria-label="Per-repetition proof blocks in this signature"></div>
-        <p class="transcript-caveat" id="aimer-transcript-caveat">Each cell is one repetition's real proof block, sliced at its true offset in this signature. <strong>Which party is hidden in a repetition is not decoded here</strong> — that index comes from the verifier's Fiat-Shamir expansion of h2, and the reference package ships WASM binaries with no source to confirm the expansion against. What is measured instead: flip a bit in any one block and the real verifier rejects.</p>
+        <p class="transcript-caveat" id="aimer-transcript-caveat">Each cell is one repetition's real proof block, sliced at the offset defined by the <a href="https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/sign.h">pinned reference source</a>. <strong>Which party is hidden in a repetition is not decoded here</strong> — the verifier derives that index from its Fiat-Shamir expansion of h2. This is a view of the signature layout, not a reconstruction of every MPC view. The button tests a one-bit edit in repetition 17; the reference tests also exercise other blocks.</p>
         <dl class="metrics">
           <div><dt>Parties</dt><dd id="aimer-party-count"></dd></div>
           <div><dt>Repetitions</dt><dd id="aimer-repetition-count"></dd></div>
@@ -67,8 +67,8 @@ export function renderAimerPane(root: HTMLElement): void {
       </section>
 
       <aside class="honesty-note" id="aimer-negative-claim">
-        <strong>Accepted, not proven hard.</strong>
-        <p>The real verifier accepts this honest signature, but acceptance does not establish knowledge of a valid preimage in this historical relation. That success is not a proof that AIM2 is one-way. See the reported public-key-only forgery vulnerability above. The browser WASM is not guaranteed constant-time and is not production crypto.</p>
+        <strong>Acceptance does not prove security.</strong>
+        <p>Even when the real verifier accepts a signature, acceptance does not establish knowledge of a valid preimage in this historical relation. A successful check is not a proof that AIM2 is one-way. See the reported public-key-only forgery vulnerability above. The browser WASM is not guaranteed constant-time and is not production crypto.</p>
       </aside>
     </div>
   `
@@ -80,26 +80,38 @@ export function renderAimerPane(root: HTMLElement): void {
   const results = requiredElement<HTMLElement>(root, '#aimer-results')
   let latestRun: AimerRun | null = null
   let signedMessage = messageInput.value
+  let currentMessage: string | null = null
+  let operation = 0
 
   setVerdict(status, 'neutral', 'Ready. The reference WASM loads only when you run it.')
 
   messageInput.addEventListener('input', () => {
-    if (!latestRun || messageInput.value === signedMessage) return
+    if (currentMessage === null || messageInput.value === currentMessage) return
+    operation += 1
+    currentMessage = null
     latestRun = null
     results.hidden = true
     tamperButton.disabled = true
+    runButton.disabled = false
+    root.removeAttribute('aria-busy')
     setVerdict(status, 'neutral', 'Previous proof retired because the message changed.')
   })
 
   runButton.addEventListener('click', async () => {
+    const request = ++operation
+    const messageText = messageInput.value
+    currentMessage = messageText
+    latestRun = null
+    results.hidden = true
     runButton.disabled = true
     tamperButton.disabled = true
     root.setAttribute('aria-busy', 'true')
     setVerdict(status, 'neutral', 'Running AIMer-128f keygen, sign, and verify in WebAssembly...')
 
     try {
-      const message = new TextEncoder().encode(messageInput.value)
+      const message = new TextEncoder().encode(messageText)
       const run = await signWithAimer(message)
+      if (request !== operation) return
       const trace = evaluateAim2(
         run.secretKey.subarray(0, 16),
         run.publicKey.subarray(0, 16),
@@ -118,6 +130,7 @@ export function renderAimerPane(root: HTMLElement): void {
         `combined = ${toHex(trace.combined, 8)}; output = ${toHex(trace.output)}`
       requiredElement(root, '#aim-computed').textContent = toHex(trace.output)
       requiredElement(root, '#aim-public').textContent = toHex(publicImage)
+      requiredElement(root, '#aim-compare').textContent = imageMatches ? '=' : '≠'
       requiredElement(root, '#aimer-party-count').textContent = String(transcript.parties)
       requiredElement(root, '#aimer-repetition-count').textContent = String(transcript.repetitions.length)
       requiredElement(root, '#aimer-repetition-size').textContent = `${transcript.repetitionBytes} B`
@@ -138,7 +151,7 @@ export function renderAimerPane(root: HTMLElement): void {
       )
 
       latestRun = run
-      signedMessage = messageInput.value
+      signedMessage = messageText
       results.hidden = false
       tamperButton.disabled = false
       if (run.verified && imageMatches) {
@@ -147,34 +160,54 @@ export function renderAimerPane(root: HTMLElement): void {
         setVerdict(status, 'alarm', 'ALARM — verification or the independent AIM2 forward check disagreed.')
       }
     } catch (error) {
+      if (request !== operation) return
       latestRun = null
+      currentMessage = null
       results.hidden = true
       setVerdict(status, 'fail', `Reference engine unavailable — ${errorMessage(error)}`)
     } finally {
-      runButton.disabled = false
-      root.removeAttribute('aria-busy')
+      if (request === operation) {
+        runButton.disabled = false
+        root.removeAttribute('aria-busy')
+      }
     }
   })
 
   tamperButton.addEventListener('click', async () => {
     if (!latestRun) return
+    const request = ++operation
+    const run = latestRun
     tamperButton.disabled = true
+    runButton.disabled = true
+    root.setAttribute('aria-busy', 'true')
     setVerdict(status, 'neutral', 'Verifying the one-bit-modified transcript...')
     // Inside repetition 17's proof block, not the header: this is the claim the
     // transcript view makes on screen, so it is the byte the button flips.
     const repetition = 16
     const message = new TextEncoder().encode(signedMessage)
-    const accepted = await verifyAimer(
-      message,
-      tamperByte(latestRun.signature, repetitionByteOffset(repetition)),
-      latestRun.publicKey,
-    )
-    setVerdict(
-      status,
-      accepted ? 'alarm' : 'fail',
-      accepted
-        ? 'ALARM — a modified transcript was accepted.'
-        : `REJECTED — flipping one bit inside repetition ${repetition + 1}'s proof block invalidated the real AIMer proof.`,
-    )
+    try {
+      const accepted = await verifyAimer(
+        message,
+        tamperByte(run.signature, repetitionByteOffset(repetition)),
+        run.publicKey,
+      )
+      if (request !== operation) return
+      setVerdict(
+        status,
+        accepted ? 'alarm' : 'fail',
+        accepted
+          ? 'ALARM — a modified transcript was accepted.'
+          : `REJECTED — flipping one bit inside repetition ${repetition + 1}'s proof block invalidated the real AIMer proof. The trace below describes the original key and signature.`,
+      )
+    } catch (error) {
+      if (request !== operation) return
+      setVerdict(status, 'fail', `NOT CHECKED — reference engine error: ${errorMessage(error)}`)
+      tamperButton.disabled = false
+    } finally {
+      if (request === operation) {
+        runButton.disabled = false
+        root.removeAttribute('aria-busy')
+      }
+    }
   })
 }

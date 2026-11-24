@@ -189,20 +189,20 @@ export function evaluateAim2(input: Uint8Array, iv: Uint8Array): AimTrace {
  * Split a real AIMer-128f signature into its salt, its two commitment hashes,
  * and one proof block per MPC repetition.
  *
- * The split is arithmetic, not guesswork: a 16-byte salt and two 32-byte
- * commitments leave 5808 bytes, and 5808 / 33 repetitions is exactly 176 bytes
- * each. `AIMER_REPETITION_BYTES` computes that rather than hard-coding it, so a
+ * The pinned reference's sign.h defines salt || h_1 || h_2 || proofs[33].
+ * params-aimer-128f.h fixes their widths at 16, 32, 32 and 176 bytes per proof:
+ * 4 * 16 reveal-path bytes + 32 commitment bytes + 5 * 16 field-element bytes.
+ * https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/sign.h
+ * `AIMER_REPETITION_BYTES` also checks the total-size arithmetic, so a
  * wrong constant anywhere in this file produces a non-integer stride and the
  * assertion below throws instead of silently slicing at the wrong offsets.
  *
  * What this DOES NOT do is decode which party is hidden in each repetition.
  * That index comes from the verifier's Fiat-Shamir expansion of the phase-three
- * commitment, and the reference package ships only WASM binaries — no source to
- * confirm the expansion against. Rather than print a plausible-looking index
- * this lab cannot stand behind, the view reports the structure it can prove and
- * says plainly that the hidden index is not decoded here. `reference.test.ts`
- * measures that every block is load-bearing by flipping a bit inside one and
- * watching the real verifier reject.
+ * commitment. The view deliberately stops at the sourced byte layout and says
+ * that the hidden index is not decoded here. `reference.test.ts` checks four
+ * separated repetition blocks by flipping a bit and watching the real verifier
+ * reject; rejection by itself would not establish a correct byte layout.
  */
 export function inspectMpcithTranscript(signature: Uint8Array): MpcithTranscript {
   assertLength('AIMer-128f signature', signature, AIMER_SIGNATURE_BYTES)

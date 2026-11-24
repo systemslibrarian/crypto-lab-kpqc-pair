@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { aimer128f } from '@killd21/kpqc/aimer'
+import { ntruplus768 } from '@killd21/kpqc/ntruplus'
 
 import {
   AIMER_HEADER_BYTES,
@@ -16,6 +18,16 @@ import { bytesEqual, tamperByte } from './shared/bytes'
 const message = new TextEncoder().encode('KpqC Pair reference-engine check')
 
 describe('AIMer-128f reference WASM', () => {
+  it('propagates an engine interruption instead of claiming verifier rejection', async () => {
+    const verify = vi.spyOn(aimer128f, 'verify').mockRejectedValueOnce(new Error('engine interrupted'))
+    try {
+      await expect(verifyAimer(message, new Uint8Array(5888), new Uint8Array(32)))
+        .rejects.toThrow('engine interrupted')
+    } finally {
+      verify.mockRestore()
+    }
+  })
+
   it('signs, verifies, and rejects a tampered signature', async () => {
     const run = await signWithAimer(message)
 
@@ -78,6 +90,22 @@ describe('AIMer-128f reference WASM', () => {
 })
 
 describe('NTRU+768 reference WASM', () => {
+  it('propagates an engine interruption instead of claiming decoder rejection', async () => {
+    const decapsulate = vi.spyOn(ntruplus768, 'decapsulate')
+      .mockRejectedValueOnce(new Error('engine interrupted'))
+    try {
+      await expect(decapsulateNtruplus(new Uint8Array(1152), new Uint8Array(2336)))
+        .rejects.toThrow('engine interrupted')
+    } finally {
+      decapsulate.mockRestore()
+    }
+  })
+
+  it('keeps input-length failure distinct from a completed decoder check', async () => {
+    await expect(decapsulateNtruplus(new Uint8Array(1151), new Uint8Array(2336)))
+      .rejects.toThrow('ciphertext must be 1152 bytes')
+  })
+
   it('round-trips and rejects a tampered ciphertext', async () => {
     const run = await runNtruplus()
 

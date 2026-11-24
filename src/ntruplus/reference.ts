@@ -45,7 +45,13 @@ export async function decapsulateNtruplus(
       sharedSecret: await ntruplus768.decapsulate(ciphertext, secretKey),
       reason: 'accepted',
     }
-  } catch {
+  } catch (error) {
+    // The pinned wrapper turns the C decoder's explicit failure (rc=1) into
+    // this error. A length error, loading failure, or WASM trap is not evidence
+    // that the decoder ran and rejected a ciphertext.
+    if (!(error instanceof Error) || error.message !== 'decapsulate failed (rc=1)') {
+      throw error
+    }
     return {
       accepted: false,
       sharedSecret: null,

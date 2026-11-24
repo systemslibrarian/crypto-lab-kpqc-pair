@@ -30,12 +30,14 @@ export function multiplyNtruplusRing(
     () => 0,
   )
 
+  // Inputs may be any safe integers. Normalize before multiplying so all
+  // accumulations stay exact: at most 768 products of residues below 3457.
   for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
-    const leftCoefficient = left[leftIndex]!
+    const leftCoefficient = modulo(left[leftIndex]!, NTRUPLUS_Q)
     if (leftCoefficient === 0) continue
 
     for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
-      const rightCoefficient = right[rightIndex]!
+      const rightCoefficient = modulo(right[rightIndex]!, NTRUPLUS_Q)
       if (rightCoefficient === 0) continue
       product[leftIndex + rightIndex]! += leftCoefficient * rightCoefficient
     }
@@ -74,7 +76,10 @@ export function polynomialFromTerms(terms: readonly PolynomialTerm[]): number[] 
     if (!Number.isSafeInteger(coefficient)) {
       throw new Error(`Coefficient at degree ${degree} must be a safe integer`)
     }
-    polynomial[degree] = modulo(polynomial[degree]! + coefficient, NTRUPLUS_Q)
+    polynomial[degree] = modulo(
+      polynomial[degree]! + modulo(coefficient, NTRUPLUS_Q),
+      NTRUPLUS_Q,
+    )
   }
   return polynomial
 }

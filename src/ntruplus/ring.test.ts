@@ -55,4 +55,22 @@ describe('NTRU+768 ring multiplication', () => {
       /maximum is 768/,
     )
   })
+
+  it('reduces safe-integer coefficients before multiplication loses precision', () => {
+    const value = Number.MAX_SAFE_INTEGER
+    const expected = Number(BigInt(value) ** 2n % 3457n)
+    expect(expected).toBe(2228)
+    expect(multiplyNtruplusRing([value], [value])[0]).toBe(expected)
+    expect(multiplyNtruplusRing([-value], [value])[0]).toBe(3457 - expected)
+  })
+
+  it('combines repeated terms without overflowing safe-integer addition', () => {
+    const value = Number.MAX_SAFE_INTEGER
+    const expected = Number((3456n + BigInt(value)) % 3457n)
+    expect(expected).toBe(890)
+    expect(polynomialFromTerms([
+      { coefficient: 3456, degree: 0 },
+      { coefficient: value, degree: 0 },
+    ])[0]).toBe(expected)
+  })
 })

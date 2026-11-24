@@ -28,7 +28,7 @@ export function renderNtruplusPane(root: HTMLElement): void {
       <div>
         <p class="eyebrow">KEY ENCAPSULATION</p>
         <h2>Meet in the NTRU ring</h2>
-        <p>The sender uses a public key to wrap a fresh 32-byte secret. The recipient uses the secret key to recover the same bytes; NTRU+'s re-encryption check rejects a malformed ciphertext before an application can treat it as valid.</p>
+        <p>The sender uses a public key and fresh randomness to produce a ciphertext and a 32-byte shared secret. The recipient decodes the ciphertext and checks its recovered randomness against a hash-derived value before returning the shared secret.</p>
       </div>
       <span class="kat-badge" data-kat="ntruplus-768-0"><span aria-hidden="true">&#10003;</span> KAT #0 pinned</span>
     </div>
@@ -54,19 +54,19 @@ export function renderNtruplusPane(root: HTMLElement): void {
     <div id="ntru-results" hidden>
       <dl class="artifact-grid">
         <div><dt>Public key</dt><dd><code id="ntru-pk"></code><span>1,152 bytes</span></dd></div>
-        <div><dt>Ciphertext</dt><dd><code id="ntru-ct"></code><span>1,152 bytes</span></dd></div>
-        <div><dt>Sender secret</dt><dd><code id="ntru-sender"></code><span>32 bytes</span></dd></div>
-        <div><dt>Recipient secret</dt><dd><code id="ntru-recipient"></code><span>32 bytes</span></dd></div>
+        <div><dt>Ciphertext being checked</dt><dd><code id="ntru-ct"></code><span>1,152 bytes</span></dd></div>
+        <div><dt>Sender's original secret</dt><dd><code id="ntru-sender"></code><span>32 bytes</span></dd></div>
+        <div><dt>Recipient result</dt><dd><code id="ntru-recipient"></code><span>32 bytes after acceptance</span></dd></div>
       </dl>
       <div class="pipeline" role="list" aria-label="NTRU+ encapsulation stages">
-        <div role="listitem"><span>01</span><strong>SOTP encode</strong><p>Bind the message to fresh coins as a short polynomial.</p></div>
+        <div role="listitem"><span>01</span><strong>SOTP encode</strong><p>Encode a fresh random message using a pad derived from the sampled polynomial.</p></div>
         <div role="listitem"><span>02</span><strong>NTRU ring</strong><p>Multiply in the 768-dimensional quotient ring.</p></div>
-        <div role="listitem"><span>03</span><strong>Re-encrypt</strong><p>Decapsulation recomputes the ciphertext and compares it.</p></div>
-        <div role="listitem"><span>04</span><strong>Accept / reject</strong><p>Only a matching ciphertext releases the shared secret.</p></div>
+        <div role="listitem"><span>03</span><strong>Check randomness</strong><p>Decapsulation checks SOTP decoding and compares recovered randomness with its hash-derived reconstruction.</p></div>
+        <div role="listitem"><span>04</span><strong>Accept / reject</strong><p>The pinned C reference returns failure and zeroes its output on rejection; the wrapper returns no shared secret.</p></div>
       </div>
       <aside class="honesty-note" id="ntru-negative-claim">
-        <strong>Matched, not proven hard.</strong>
-        <p>The sender and recipient agree here, but a round trip does not prove the NTRU problem is hard. This reference WASM is newer and less cross-implementation-scrutinized than the NIST FIPS selections, is not guaranteed constant-time, and is not production crypto.</p>
+        <strong>Agreement does not prove security.</strong>
+        <p>A matching round trip does not prove the NTRU problem is hard. The one-bit check tests this ciphertext edit; it is not a test of every malformed input. This reference WASM is newer and less cross-implementation-scrutinized than the NIST FIPS selections, is not guaranteed constant-time, and is not production crypto.</p>
       </aside>
     </div>
 
@@ -95,6 +95,8 @@ export function renderNtruplusPane(root: HTMLElement): void {
   setVerdict(status, 'neutral', 'Ready. Keys and secrets stay in this browser session.')
 
   runButton.addEventListener('click', async () => {
+    latestRun = null
+    results.hidden = true
     runButton.disabled = true
     tamperButton.disabled = true
     root.setAttribute('aria-busy', 'true')
@@ -128,19 +130,34 @@ export function renderNtruplusPane(root: HTMLElement): void {
 
   tamperButton.addEventListener('click', async () => {
     if (!latestRun) return
+    const run = latestRun
     tamperButton.disabled = true
+    runButton.disabled = true
+    root.setAttribute('aria-busy', 'true')
+    const ciphertext = tamperByte(run.ciphertext)
+    requiredElement(root, '#ntru-ct').textContent = toHex(ciphertext, 20)
+    requiredElement(root, '#ntru-recipient').textContent = 'Checking…'
     setVerdict(status, 'neutral', 'Decapsulating the one-bit-modified ciphertext...')
-    const result = await decapsulateNtruplus(
-      tamperByte(latestRun.ciphertext),
-      latestRun.secretKey,
-    )
-    setVerdict(
-      status,
-      result.accepted ? 'alarm' : 'fail',
-      result.accepted
-        ? 'ALARM — a modified ciphertext reached the accepted path.'
-        : 'REJECTED — the NTRU+ re-encryption check returned failure.',
-    )
+    try {
+      const result = await decapsulateNtruplus(ciphertext, run.secretKey)
+      requiredElement(root, '#ntru-recipient').textContent = result.sharedSecret
+        ? toHex(result.sharedSecret)
+        : 'No shared secret returned'
+      setVerdict(
+        status,
+        result.accepted ? 'alarm' : 'fail',
+        result.accepted
+          ? 'ALARM — a modified ciphertext reached the accepted path.'
+          : 'REJECTED — the NTRU+ ciphertext-validity check returned failure.',
+      )
+    } catch (error) {
+      requiredElement(root, '#ntru-recipient').textContent = 'Not checked'
+      setVerdict(status, 'fail', `NOT CHECKED — reference engine error: ${errorMessage(error)}`)
+      tamperButton.disabled = false
+    } finally {
+      runButton.disabled = false
+      root.removeAttribute('aria-busy')
+    }
   })
 
   const leftInput = requiredElement<HTMLInputElement>(root, '#ring-left')
