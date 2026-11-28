@@ -1,3 +1,4 @@
+import { AIMER_128F_WASM_SHA256 } from '../kat/fixtures'
 import { evaluateAim2, inspectMpcithTranscript, repetitionByteOffset } from '../aimer/aim'
 import { signWithAimer, verifyAimer, type AimerRun } from '../aimer/reference'
 import { bytesEqual, tamperByte, toHex } from '../shared/bytes'
@@ -19,6 +20,15 @@ export function renderAimerPane(root: HTMLElement): void {
       <p><a href="https://eprint.iacr.org/2026/2235">ePrint 2026/2235 (September 28, 2026)</a> reports public-key-only forgeries against AIMer v2.0 accepted by unmodified reference verifiers. This is a demonstrated result reported in a preprint; it has not yet been independently reproduced against this lab's shipped WASM. Honest KATs and one-bit tamper rejection do not establish signature security. AIM3-based v3.0 excludes this zero-branch attack, without a comprehensive security assessment here.</p>
       <p><strong>Research update — November 15, 2026.</strong> <a href="https://eprint.iacr.org/2026/903">ePrint 2026/903 (Biryukov, García Fernández, and Udovenko; EUROCRYPT 2026)</a> cryptanalyses the AIM2 primitive of AIMer v2.1 itself, not the proof relation: a new algebraic elimination framework recovers an AIM2-I key (the 128-bit-security instance, the level this lab's AIMer-128f reference uses) in about 2<sup>103.66</sup> encryptions against a claimed 128-bit level, and is practical only in misuse settings (one secret key reused under different IVs, or related keys). That is a reported loss of security margin, not a practical break of a single honestly generated AIMer-128f key; it does not change what this pane shows, and KAT agreement was never evidence that AIM2 is one-way.</p>
     </aside>
+
+    <details class="transcript-caveat" id="aimer-source">
+      <summary>Which AIMer implementation does this lab run?</summary>
+      <p>The browser loads AIMer-128f from the npm package <code>@killd21/kpqc@0.2.0</code>.
+      Its WebAssembly binary is 127,927 bytes. Its SHA-256 digest is <code>${AIMER_128F_WASM_SHA256}</code>.</p>
+      <p>The C sources in the <a href="https://github.com/killd21/kpqc-js/tree/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer">tagged vendor directory</a>
+      match the archive identified by the <a href="https://aimer-signature.org/docs/AIMer_Specification_v260130.pdf">January 30, 2026 specification</a>.
+      The prebuilt binary in that Git tag has a different digest. Use the npm digest above to identify the bytes running here.</p>
+    </details>
 
     <div class="control-strip">
       <label for="aimer-message">Message to sign</label>

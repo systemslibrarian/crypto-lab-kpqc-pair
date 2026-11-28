@@ -45,6 +45,12 @@ is not guaranteed constant-time, and these schemes are newer and less
 cross-implementation-scrutinized than the NIST FIPS selections. See
 [Honest Limitations](#honest-limitations).
 
+### AIMer source and binary identification
+
+The [January 30, 2026 specification](https://aimer-signature.org/docs/AIMer_Specification_v260130.pdf) prints the SHA-256 digest of its [reference archive](https://github.com/samsungsds-opensource/AIMer/blob/e47c497f3552c234e0ca8368df9bb629af9608ce/AIMer-package.zip) on the cover. The archive matches that digest, `d7bbdb28e70dad021da2057bc0b4802585770cbc2d7449acfcd770d8bc624521`. All 30 C sources and headers and all six known-answer response files in the [vendor directory at the npm release tag](https://github.com/killd21/kpqc-js/tree/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer) match the corresponding archive files byte for byte.
+
+The lockfile pins the published `@killd21/kpqc@0.2.0` package by integrity hash. Its `wasm/aimer.wasm` is 127,927 bytes with SHA-256 `84891f67519658f64544b34bf472a3a7206fd054bc19a815a554438207a96805`. The [binary stored under the Git tag](https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/packages/kpqc/wasm/aimer.wasm) is 128,195 bytes with SHA-256 `e66de0d791066401e26814f3afaa688b7bc8dce2998ca13de0b573e2c823bb63`. The lab displays and tests the digest of the npm artifact it loads. The evidence identifies the source archive and the two distributed binaries. Reproducing the npm compilation remains a separate check.
+
 ## Research status — historical AIM2 implementation
 
 [Practical Null-Branch Witness Attacks on In-the-Head Signatures,

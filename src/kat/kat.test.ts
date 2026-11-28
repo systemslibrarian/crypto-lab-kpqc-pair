@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it } from 'vitest'
 
 import {
   AIMER_128F_KAT,
+  AIMER_128F_WASM_SHA256,
   KAT_SEED_HEX,
   NTRUPLUS_768_KAT,
 } from './fixtures'
@@ -56,6 +58,13 @@ function allocate<const Sizes extends readonly number[]>(
 ): PointerTuple<Sizes> {
   return sizes.map((size) => module._malloc(Math.max(1, size))) as PointerTuple<Sizes>
 }
+
+it('identifies the AIMer binary displayed in the source note', async () => {
+  const entry = import.meta.resolve('@killd21/kpqc/aimer')
+  const bytes = await readFile(new URL('../wasm/aimer.wasm', entry))
+  expect(bytes.length).toBe(127_927)
+  expect(digest(bytes)).toBe(AIMER_128F_WASM_SHA256)
+})
 
 describe('official KpqC KAT record 0', () => {
   it('reproduces AIMer-128f key and signed-message bytes', async () => {

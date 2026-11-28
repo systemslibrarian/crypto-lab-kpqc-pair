@@ -11,6 +11,7 @@
  * derived: nothing in this repo can regenerate them, which is the point. They
  * are the fixture.
  */
+export const AIMER_128F_WASM_SHA256 = '84891f67519658f64544b34bf472a3a7206fd054bc19a815a554438207a96805'
 export const KAT_SOURCE_COMMIT = '9886cfb59fac204fdf2947bfab5ac4964c7f3fea'
 
 /**
