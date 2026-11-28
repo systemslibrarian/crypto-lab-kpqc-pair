@@ -6,6 +6,9 @@ const FIELD_MASK = (1n << 128n) - 1n
 const REDUCTION_TAIL = 0x87n
 const INPUT_SBOXES = 2
 
+// AIMer-128f reference used by the WASM build (constants and forward evaluation):
+// https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/aim2_constant.h
+// https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/AIMer/Reference_Implementation/aim2.c
 const AIM2_CONSTANTS = [
   0x243f6a8885a308d313198a2e03707344n,
   0xa4093822299f31d0082efa98ec4e6c89n,

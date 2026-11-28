@@ -331,6 +331,8 @@ test('the NTRU+ success keeps its no-hardness-proof caveat on screen', async ({ 
   await page.locator('#ntru-run').click()
   await expect(page.locator('#ntru-status')).toHaveAttribute('data-verdict', 'pass')
 
+  await expect(page.locator('#ntru-key-size')).toHaveText('2336')
+  await expect(page.locator('#ntru-key-layout')).toContainText('two 1,152-byte polynomials followed by a 32-byte hash')
   const claim = page.locator('#ntru-negative-claim')
   await expect(claim).toBeVisible()
   await expect(claim).toContainText('does not prove the NTRU problem is hard')

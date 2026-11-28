@@ -88,6 +88,8 @@ rejection were never evidence that AIM2 is one-way.
 
 This is not demonstrated production-key recovery or a proof of security. The lab retains NTRU+768 and its pinned known-answer fixtures; it does not execute the module attack. These estimates should not be subtracted from unrelated security figures or generalized to every NTRU-based scheme. The visible NTRU+ panel and Primary trails link to the paper.
 
+The NTRU+768 secret key in this build occupies **2,336 bytes**. The [pinned key generator](https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/NTRUplus/Reference_Implementation/NTRU%2B768/kem.c) writes two 1,152-byte polynomial encodings, then the 32-byte public-key hash. The [hash definition](https://github.com/killd21/kpqc-js/blob/9886cfb59fac204fdf2947bfab5ac4964c7f3fea/vendor/NTRUplus/Reference_Implementation/NTRU%2B768/symmetric.c) absorbs byte 0x00 followed by the public key into SHAKE256. The KEM separately returns a 32-byte shared secret.
+
 ## Exhibits
 
 1. **NTRU+ — Meet in the NTRU ring.** Encapsulate to a freshly generated public key,

@@ -58,6 +58,7 @@ export function renderNtruplusPane(root: HTMLElement): void {
         <div><dt>Sender's original secret</dt><dd><code id="ntru-sender"></code><span>32 bytes</span></dd></div>
         <div><dt>Recipient result</dt><dd><code id="ntru-recipient"></code><span>32 bytes after acceptance</span></dd></div>
       </dl>
+      <p id="ntru-key-layout"><strong>Recipient secret key:</strong> <span id="ntru-key-size"></span> bytes. The pinned implementation stores two 1,152-byte polynomials followed by a 32-byte hash of the public key. The shared secret shown above is a separate 32-byte output.</p>
       <div class="pipeline" role="list" aria-label="NTRU+ encapsulation stages">
         <div role="listitem"><span>01</span><strong>SOTP encode</strong><p>Encode a fresh random message using a pad derived from the sampled polynomial.</p></div>
         <div role="listitem"><span>02</span><strong>NTRU ring</strong><p>Multiply in the 768-dimensional quotient ring.</p></div>
@@ -108,6 +109,7 @@ export function renderNtruplusPane(root: HTMLElement): void {
       requiredElement(root, '#ntru-ct').textContent = toHex(run.ciphertext, 20)
       requiredElement(root, '#ntru-sender').textContent = toHex(run.senderSecret)
       requiredElement(root, '#ntru-recipient').textContent = toHex(run.recipientSecret)
+      requiredElement(root, '#ntru-key-size').textContent = String(run.secretKey.length)
       results.hidden = false
       latestRun = run
       tamperButton.disabled = false

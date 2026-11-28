@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
 import { aimer128f } from '@killd21/kpqc/aimer'
 import { ntruplus768 } from '@killd21/kpqc/ntruplus'
 
@@ -111,6 +112,9 @@ describe('NTRU+768 reference WASM', () => {
 
     expect(run.publicKey).toHaveLength(1152)
     expect(run.secretKey).toHaveLength(2336)
+    const publicKeyHash = createHash('shake256', { outputLength: 32 })
+      .update(Uint8Array.of(0)).update(run.publicKey).digest()
+    expect(run.secretKey.slice(2 * 1152)).toEqual(new Uint8Array(publicKeyHash))
     expect(run.ciphertext).toHaveLength(1152)
     expect(run.senderSecret).toHaveLength(32)
     expect(run.matched).toBe(true)
